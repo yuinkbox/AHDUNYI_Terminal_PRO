@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 Contextual Audit Engine - multi-dimensional behaviour analysis.
 

@@ -23,11 +23,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).parent.parent.resolve()
-WEB_CLIENT = ROOT / "web_client"
+ROOT = Path(__file__).parent.parent.parent.resolve()  # client/build/ -> client/ -> repo root
+WEB_CLIENT = ROOT / "client" / "web"
 DIST_DIR = ROOT / "dist"
-BUILD_WORK = ROOT / "build" / "_pyinstaller"
-SPEC_FILE = ROOT / "build" / "AHDUNYI.spec"
+BUILD_WORK = ROOT / "client" / "build" / "_pyinstaller"
+SPEC_FILE = ROOT / "client" / "build" / "AHDUNYI.spec"
 
 
 def _sep() -> None:

@@ -6,8 +6,6 @@ __pycache__/
 *.so
 *.egg
 *.egg-info/
-dist/
-build/_pyinstaller/
 .venv/
 venv/
 .env
@@ -18,9 +16,15 @@ logs/
 
 # PyInstaller output
 dist/
+client/build/_pyinstaller/
 
-# Config (contains production server IP - keep out of VCS)
+# Config (contains production server IP)
 config.json
+
+# Temp scripts
+m1.py
+migrate_step*.py
+fix_ts_errors*.py
 
 # OS
 .DS_Store
@@ -31,6 +35,6 @@ Thumbs.db
 *.swp
 *.swo
 
-# Node (already covered by web_client/.gitignore but just in case)
-web_client/node_modules/
-web_client/dist/
+# Node
+client/web/node_modules/
+client/web/dist/

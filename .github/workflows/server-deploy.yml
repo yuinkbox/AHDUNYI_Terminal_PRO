@@ -1,0 +1,37 @@
+name: Server Deploy (Aliyun)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'server/**'
+      - 'shared/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Lint server code
+        run: |
+          pip install flake8
+          flake8 server/ shared/ --max-line-length=120 --ignore=E501,W503
+
+      - name: Deploy to Aliyun via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.ALIYUN_HOST }}
+          username: ${{ secrets.ALIYUN_USER }}
+          key: ${{ secrets.ALIYUN_SSH_KEY }}
+          script: |
+            cd /app/AHDUNYI_Terminal_PRO
+            git pull origin main
+            pip install -r server/requirements.txt
+            systemctl restart ahdunyi-api
+            echo "Deploy complete: $(date)"

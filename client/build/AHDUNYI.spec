@@ -1,11 +1,12 @@
 # -*- mode: python ; coding: utf-8 -*-
 """
-AHDUNYI Terminal PRO - PyInstaller spec.
+AHDUNYI Terminal PRO - PyInstaller spec (Monorepo layout).
 
 Packs:
-  - src/main.py            (entry point)
-  - web_client/dist/**     (compiled Vue frontend)
-  - config.json            (optional, if present)
+  - client/desktop/main.py   (entry point)
+  - client/web/dist/**       (compiled Vue frontend)
+  - shared/**                (shared schemas/constants)
+  - config.json              (optional, repo root)
 
 Author : AHDUNYI
 Version: 9.0.0
@@ -15,28 +16,36 @@ import os
 import sys
 from pathlib import Path
 
-SPEC_DIR = Path(SPECPATH)      # noqa: F821  injected by PyInstaller
-PROJECT  = SPEC_DIR.parent
+SPEC_DIR   = Path(SPECPATH)        # noqa: F821  client/build/
+CLIENT_DIR = SPEC_DIR.parent       # client/
+PROJECT    = CLIENT_DIR.parent     # repo root
 
-print("[SPEC] project root: " + str(PROJECT))
+print("[SPEC] repo root   : " + str(PROJECT))
+print("[SPEC] client dir  : " + str(CLIENT_DIR))
 print("[SPEC] python      : " + sys.executable)
 
-MAIN = str(PROJECT / "src" / "main.py")
+MAIN = str(CLIENT_DIR / "desktop" / "main.py")
 assert os.path.exists(MAIN), "Entry point not found: " + MAIN
 
 # Data files
 datas = []
-WEB_DIST = PROJECT / "web_client" / "dist"
+
+WEB_DIST = CLIENT_DIR / "web" / "dist"
 if WEB_DIST.exists():
-    datas.append((str(WEB_DIST), "web_client/dist"))
-    print("[SPEC] web_client/dist included")
+    datas.append((str(WEB_DIST), "client/web/dist"))
+    print("[SPEC] client/web/dist included")
 else:
-    print("[WARN] web_client/dist missing - run npm run build first")
+    print("[WARN] client/web/dist missing - run npm run build first")
 
 CFG = PROJECT / "config.json"
 if CFG.exists():
     datas.append((str(CFG), "."))
     print("[SPEC] config.json included")
+
+SHARED = PROJECT / "shared"
+if SHARED.exists():
+    datas.append((str(SHARED), "shared"))
+    print("[SPEC] shared/ included")
 
 hiddenimports = [
     "PyQt6", "PyQt6.QtWidgets", "PyQt6.QtCore", "PyQt6.QtGui",
@@ -44,11 +53,14 @@ hiddenimports = [
     "PyQt6.QtWebEngineCore", "PyQt6.sip",
     "psutil", "uiautomation", "comtypes", "comtypes.client",
     "requests", "urllib3", "urllib3.util.retry", "cachetools",
-    "src.main", "src.config.settings",
-    "src.utils.file_helper", "src.utils.network_client",
-    "src.app.bridge.web_channel",
-    "src.app.core.room_monitor", "src.app.core.behavior_analyzer",
-    "src.app.ui.login_window", "src.app.ui.main_window",
+    "client.desktop.main", "client.desktop.config.settings",
+    "client.desktop.utils.file_helper", "client.desktop.utils.network_client",
+    "client.desktop.app.bridge.web_channel",
+    "client.desktop.app.core.room_monitor",
+    "client.desktop.app.ui.login_window", "client.desktop.app.ui.main_window",
+    "shared.constants.api_paths",
+    "shared.schemas.token", "shared.schemas.audit",
+    "shared.patterns.room_id",
 ]
 
 excludes = [
@@ -60,7 +72,7 @@ excludes = [
 
 a = Analysis(        # noqa: F821
     [MAIN],
-    pathex=[str(PROJECT)],
+    pathex=[str(PROJECT), str(PROJECT / "shared")],
     binaries=[],
     datas=datas,
     hiddenimports=hiddenimports,

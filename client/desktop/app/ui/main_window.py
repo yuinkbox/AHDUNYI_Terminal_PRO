@@ -21,8 +21,8 @@ from PyQt6.QtWebEngineCore import QWebEngineSettings
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QMainWindow, QMessageBox, QWidget, QApplication
 
-from src.app.bridge.web_channel import AppBridge
-from src.config.settings import AppSettings
+from client.desktop.app.bridge.web_channel import AppBridge
+from client.desktop.config.settings import AppSettings
 
 logger = logging.getLogger(__name__)
 

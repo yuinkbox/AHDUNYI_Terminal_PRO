@@ -1,0 +1,1 @@
+AUTH_LOGIN=" /api/auth/login\nAUTH_LOGOUT=\/api/auth/logout\nRBAC_USERS=\/api/rbac/users\nPATROLS_REALTIME=\/api/patrols/realtime\nSUPERVISOR_STATUS=\/api/supervisor/realtime-status\n

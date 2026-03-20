@@ -22,10 +22,11 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Monorepo root: client/desktop/ -> client/ -> repo_root
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.config.settings import ConfigManager, AppSettings
-from src.utils.file_helper import setup_logging
+from client.desktop.config.settings import ConfigManager, AppSettings
+from client.desktop.utils.file_helper import setup_logging
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +67,7 @@ def _start_room_monitor(settings: AppSettings, bridge) -> Optional[object]:
         Running RoomMonitor, or None on failure.
     """
     try:
-        from src.app.core.room_monitor import create_room_monitor
+        from client.desktop.app.core.room_monitor import create_room_monitor
 
         def _on_room_change(room_id: Optional[str]) -> None:
             bridge.update_room_id(room_id)
@@ -114,8 +115,8 @@ def _run_gui(settings: AppSettings) -> int:
     app.setPalette(pal)
 
     try:
-        from src.app.ui.login_window import LoginWindow
-        from src.app.ui.main_window import MainWindow
+        from client.desktop.app.ui.login_window import LoginWindow
+        from client.desktop.app.ui.main_window import MainWindow
     except ImportError as exc:
         logger.error("UI import failed: %s", exc)
         QMessageBox.critical(None, "Startup Error", f"Failed to load UI:\n{exc}")
@@ -187,7 +188,7 @@ def main() -> int:
 
 if __name__ == "__main__":
     if "--help" in sys.argv or "-h" in sys.argv:
-        print("Usage: python -m src.main [config_file]")
+        print("Usage: python -m client.desktop.main [config_file]")
         sys.exit(0)
 
     try:
