@@ -8,6 +8,7 @@ __pycache__/
 *.egg-info/
 .venv/
 venv/
+.env
 
 # Logs
 logs/
@@ -17,13 +18,10 @@ logs/
 dist/
 client/build/_pyinstaller/
 
-# Config (contains production server IP)
-config.json
-
-# Server environment variables (contains DB credentials - never commit)
+# Server environment variables (contains DB credentials - NEVER commit)
 server/.env
 
-# Temp scripts
+# Temp / legacy scripts
 m1.py
 migrate_step*.py
 fix_ts_errors*.py
@@ -34,12 +32,18 @@ fix_build_encoding.py
 # OS
 .DS_Store
 Thumbs.db
+*.db
+*.sqlite3
 
 # IDE
 .idea/
 *.swp
 *.swo
+.vscode/settings.json
 
 # Node
 client/web/node_modules/
 client/web/dist/
+
+# Python virtual env in desktop client
+client/desktop/.venv/

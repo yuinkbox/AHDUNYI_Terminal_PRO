@@ -72,8 +72,8 @@
                   <template #title>
                     <div class="user-title">
                       <span class="user-name">{{ item.full_name }}</span>
-                      <a-tag :color="getRoleColor(item.role)" size="small">
-                        {{ getRoleLabel(item.role) }}
+                      <a-tag :color="getUserColor(item.role)" size="small">
+                        {{ permissionStore.allRoles.find((r) => r.value === item.role)?.label ?? item.role }}
                       </a-tag>
                     </div>
                   </template>
@@ -428,8 +428,8 @@
             
             <a-table-column title="当前角色" data-index="role" :width="100">
               <template #cell="{ record }">
-                <a-tag :color="getRoleColor(record.role)" size="small">
-                  {{ getRoleLabel(record.role) }}
+                <a-tag :color="getUserColor(record.role)" size="small">
+                  {{ permissionStore.allRoles.find((r) => r.value === record.role)?.label ?? record.role }}
                 </a-tag>
               </template>
             </a-table-column>
@@ -503,8 +503,8 @@
               <icon-user-group />
               <span>角色分布:</span>
               <div class="role-distribution">
-                <a-tag v-for="(count, role) in roleDistribution" :key="role" :color="getRoleColor(role as any)" size="small">
-                  {{ getRoleLabel(role as any) }}: {{ count }}
+                <a-tag v-for="(count, role) in roleDistribution" :key="role" :color="getUserColor(role as any)" size="small">
+                  {{ permissionStore.allRoles.find((r) => r.value === role as any)?.label ?? role as any }}: {{ count }}
                 </a-tag>
               </div>
             </div>
@@ -532,8 +532,8 @@
             <div class="user-title">
               <h3>{{ selectedUser.full_name }}</h3>
               <div class="user-subtitle">
-                <a-tag :color="getRoleColor(selectedUser.role)" size="small">
-                  {{ getRoleLabel(selectedUser.role) }}
+                <a-tag :color="getUserColor(selectedUser.role)" size="small">
+                  {{ permissionStore.allRoles.find((r) => r.value === selectedUser.role)?.label ?? selectedUser.role }}
                 </a-tag>
                 <span class="username">@{{ selectedUser.username }}</span>
                 <span class="user-id">ID: {{ selectedUser.id }}</span>
@@ -744,8 +744,6 @@ import dayjs from 'dayjs'
 import { 
   rbacApi, 
   type TeamInsightResponse,
-  getRoleLabel,
-  getRoleColor,
   getShiftTypeLabel
 } from '@/api/rbac'
 import { usePermissionStore } from '@/stores/permission'

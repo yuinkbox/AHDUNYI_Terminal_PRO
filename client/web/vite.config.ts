@@ -15,22 +15,46 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
-    open: true,
+    open: false,
     cors: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+    },
   },
 
   build: {
-    // Target modern Chromium - QtWebEngine ships a recent Blink version.
+    // Target modern Chromium — QtWebEngine ships a recent Blink version.
     target: 'chrome100',
     outDir: 'dist',
-    // Use relative asset paths so index.html works from any file:// location.
-    base: '',
+    // Relative asset paths so index.html works from any file:// location (exe packaging).
+    assetsDir: 'assets',
     minify: 'esbuild',
+    sourcemap: false,
+    chunkSizeWarningLimit: 2000,
     rollupOptions: {
       output: {
+        // Stable chunk names for better caching
         chunkFileNames:  'assets/js/[name]-[hash].js',
         entryFileNames:  'assets/js/[name]-[hash].js',
         assetFileNames:  'assets/[ext]/[name]-[hash].[ext]',
+        // Split vendor chunks to reduce main bundle size
+        manualChunks: {
+          'vendor-vue':   ['vue', 'vue-router', 'pinia'],
+          'vendor-arco':  ['@arco-design/web-vue'],
+          'vendor-axios': ['axios'],
+        },
+      },
+    },
+  },
+
+  // Ensure CSS is properly extracted for exe packaging
+  css: {
+    preprocessorOptions: {
+      less: {
+        javascriptEnabled: true,
       },
     },
   },

@@ -1,355 +1,225 @@
 <template>
-  <div class="shadow-audit-dashboard">
-    <a-card class="status-card" :bordered="false">
-      <div class="status-header">
-        <div class="status-left">
-          <a-space size="large">
-            <div class="status-item">
-              <div class="status-label">系统状态</div>
-              <div class="status-value" :class="{ 'status-error': lastError }">
-                {{ lastError || '卫星链路已连接' }}
-              </div>
-            </div>
-            <div class="status-item">
-              <div class="status-label">当前活跃用户</div>
-              <div class="status-value">{{ systemStats.total_active_users || 0 }}</div>
-            </div>
-            <div class="status-item">
-              <div class="status-label">最后侦测时间</div>
-              <div class="status-value">{{ lastUpdateTime }}</div>
-            </div>
-            <div class="status-item">
-              <div class="status-label">影子引擎</div>
-              <div class="status-value" :class="systemStats.audit_engine_available ? 'status-success' : 'status-error'">
-                {{ systemStats.audit_engine_available ? '满负荷运转' : '引擎离线' }}
-              </div>
-            </div>
-          </a-space>
-        </div>
-        
-        <div class="status-right">
-          <a-space>
-            <a-button type="primary" :loading="loading" @click="refreshData">
-              <template #icon><icon-refresh /></template>
-              强制侦测
-            </a-button>
-            <a-button 
-              type="outline" 
-              @click="toggleAutoRefresh"
-              :status="autoRefreshEnabled ? 'success' : 'normal'"
-            >
-              <template #icon><icon-sync :spin="autoRefreshEnabled" /></template>
-              {{ autoRefreshEnabled ? '自动巡航中' : '手动监控' }}
-            </a-button>
-            <a-tag color="arcoblue" bordered>5s 刷新间隔</a-tag>
-          </a-space>
-        </div>
+  <div class="shadow-audit-page">
+    <!-- 页头 -->
+    <div class="page-header">
+      <div class="header-left">
+        <icon-eye :size="24" />
+        <span class="page-title">统帅大屏 — 影子审计</span>
+        <a-badge status="processing" text="实时监控中" />
       </div>
-    </a-card>
-
-    <a-card class="radar-card" :bordered="false">
-      <template #title>
-        <div class="radar-title">
-          <icon-apps size="20" style="color: #165dff" />
-          <span>全员实时统帅监控</span>
-          <a-badge v-if="suspiciousCount > 0" :count="suspiciousCount" color="red" class="suspicious-badge" />
-            color="red" 
-            class="suspicious-badge"
-          />
->>>>>>> ccbe7b8 (style: 重写全站UI文案，采用字节跳动内部中台风格，更新为业务导向词汇)
-        </div>
-      </template>
-      
-      <a-table
-        :data="activeUsers"
-        :columns="columns"
-        :pagination="false"
-        :loading="loading"
-        :row-class-name="getRowClassName"
-        class="radar-table"
-        row-key="user_id"
-      >
-        <template #username="{ record }">
-          <div class="user-cell">
-            <a-avatar :size="32" :style="{ backgroundColor: getUserColor(record.user_id) }">
-              {{ record.full_name ? record.full_name.charAt(0) : '?' }}
-            </a-avatar>
-            <div class="user-info">
-              <div class="user-name">{{ record.full_name }}</div>
-              <div class="user-id">ID: {{ record.id }}</div>
-            </div>
-          </div>
-        </template>
-
-        <template #status="{ record }">
-          <a-tag :color="getStatusColor(record.status)" :bordered="false">
-            {{ getStatusText(record.status) }}
-          </a-tag>
-        </template>
-
-        <template #stay_duration="{ record }">
-          <a-space size="mini">
-            <icon-clock-circle />
-            <span>{{ formatDuration(record.stay_duration || 0) }}</span>
-          </a-space>
-        </template>
-
-        <template #judgment="{ record }">
-          <div class="judgment-cell" :style="{ color: getStatusColor(record.status) }">
-            <component :is="getStatusIcon(record.status)" style="margin-right: 4px" />
-            <span style="font-weight: 600">{{ getJudgmentText(record.status) }}</span>
-          </div>
-        </template>
-
-        <template #operations="{ record }">
-          <a-button type="text" size="small" @click="showUserDetail(record)">
-            <template #icon><icon-eye /></template>
-            追踪
-          </a-button>
-        </template>
-      </a-table>
-
-      <div class="table-footer">
-        <a-space size="large">
-          <span class="footer-stat-item">监控总数: <b>{{ activeUsers.length }}</b></span>
-          <span class="footer-stat-item color-red">高危预警: <b>{{ suspiciousCount }}</b></span>
-          <span class="footer-stat-item color-green">风险追踪: <b>{{ riskTrackingCount }}</b></span>
-        </a-space>
-        <a-button type="text" size="small" @click="exportData">
-          <template #icon><icon-download /></template>
-          导出战报
+      <a-space>
+        <a-select v-model="filterUserId" style="width:160px" allow-clear placeholder="筛选审核员"
+          @change="loadLogs">
+          <a-option :value="0">全部人员</a-option>
+          <a-option v-for="u in activeUsers" :key="u.id" :value="u.id">
+            {{ u.full_name }}
+          </a-option>
+        </a-select>
+        <a-input
+          v-model="filterAction"
+          placeholder="操作关键词"
+          style="width:140px"
+          allow-clear
+          @press-enter="loadLogs"
+        />
+        <a-button type="primary" @click="loadLogs" :loading="loading">
+          <template #icon><icon-search /></template>查询
         </a-button>
-      </div>
-    </a-card>
+        <a-button @click="toggleAutoRefresh">
+          <template #icon>
+            <icon-pause v-if="autoRefresh" />
+            <icon-play-arrow v-else />
+          </template>
+          {{ autoRefresh ? '暂停刷新' : '恢复刷新' }}
+        </a-button>
+      </a-space>
+    </div>
 
-    <a-row :gutter="16">
-      <a-col :span="8">
-        <a-card title="影子引擎侦测统计" size="small" :bordered="false">
-          <div class="engine-stats">
-            <div class="stat-row"><span>总检查频次</span><b>{{ auditStats.total_checks }}</b></div>
-            <div class="stat-row"><span>平均响应耗时</span><b>{{ auditStats.avg_response_time }}ms</b></div>
-            <div class="stat-row"><span>跳房检测拦截</span><b style="color: #f53f3f">{{ auditStats.hopping_detected }}</b></div>
-          </div>
+    <!-- 统计卡片 -->
+    <a-row :gutter="16" class="stat-row">
+      <a-col :span="6">
+        <a-card class="stat-card">
+          <a-statistic title="总操作数" :value="total">
+            <template #prefix><icon-list /></template>
+          </a-statistic>
         </a-card>
       </a-col>
-      <a-col :span="16">
-        <a-card title="RoomMonitor 终端状态" size="small" :bordered="false">
-          <div class="monitor-info-grid">
-            <a-tag :color="roomMonitor.running ? 'green' : 'red'">
-              探针状态: {{ roomMonitor.running ? '在线' : '离线' }}
-            </a-tag>
-            <span v-if="roomMonitor.running">当前锁定房间: <b>{{ roomMonitor.current_room_id || '未进房' }}</b></span>
-            <span v-if="roomMonitor.running">底层扫描次数: {{ roomMonitor.stats?.total_scans }}</span>
-          </div>
+      <a-col :span="6">
+        <a-card class="stat-card">
+          <a-statistic title="活跃用户" :value="uniqueUsers"
+            :value-style="{ color: '#165dff' }">
+            <template #prefix><icon-user-group /></template>
+          </a-statistic>
+        </a-card>
+      </a-col>
+      <a-col :span="6">
+        <a-card class="stat-card">
+          <a-statistic title="平均操作时长(ms)" :value="avgDuration" :precision="0"
+            :value-style="{ color: '#ff7d00' }">
+            <template #prefix><icon-clock-circle /></template>
+          </a-statistic>
+        </a-card>
+      </a-col>
+      <a-col :span="6">
+        <a-card class="stat-card">
+          <a-statistic title="总页数" :value="totalPages">
+            <template #prefix><icon-file /></template>
+          </a-statistic>
         </a-card>
       </a-col>
     </a-row>
+
+    <!-- 日志表格 -->
+    <a-card class="table-card">
+      <a-table
+        :data="logs"
+        :loading="loading"
+        :pagination="{
+          current: page,
+          pageSize: pageSize,
+          total: total,
+          showTotal: true,
+          onChange: onPageChange,
+        }"
+        row-key="id"
+        stripe
+        size="small"
+      >
+        <a-table-column title="时间" :width="160">
+          <template #cell="{ record }">
+            <span class="ts-cell">{{ formatTs(record.timestamp) }}</span>
+          </template>
+        </a-table-column>
+        <a-table-column title="用户" :width="120">
+          <template #cell="{ record }">
+            <a-tag color="blue" size="small">{{ record.username }}</a-tag>
+          </template>
+        </a-table-column>
+        <a-table-column title="操作" data-index="action" :width="140" />
+        <a-table-column title="详情" data-index="details" />
+        <a-table-column title="时长(ms)" data-index="duration" :width="100">
+          <template #cell="{ record }">
+            <span :style="{ color: record.duration > 5000 ? '#f53f3f' : 'inherit' }">
+              {{ record.duration ?? '-' }}
+            </span>
+          </template>
+        </a-table-column>
+        <a-table-column title="任务ID" data-index="task_id" :width="90">
+          <template #cell="{ record }">{{ record.task_id ?? '-' }}</template>
+        </a-table-column>
+      </a-table>
+    </a-card>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { Message } from '@arco-design/web-vue'
-import { 
-  IconRefresh, IconSync, IconApps, IconClockCircle,
-  IconEye, IconCheckCircle, IconDownload, IconExclamationCircle,
-  IconNotification
-} from '@arco-design/web-vue/es/icon'
-import { supervisorApi } from '@/api/supervisor'
+import { rbacApi, type ActionLogItem, type ActiveUser } from '@/api/rbac'
 
-// --- 1. 响应式状态 ---
-const loading = ref(false)
-const lastError = ref('')
-const lastUpdateTime = ref('--:--:--')
-const autoRefreshEnabled = ref(true)
-const refreshTimer = ref<any>(null)
+// ---- state ---------------------------------------------------------------
+const logs         = ref<ActionLogItem[]>([])
+const activeUsers  = ref<ActiveUser[]>([])
+const loading      = ref(false)
+const total        = ref(0)
+const page         = ref(1)
+const pageSize     = ref(50)
+const filterUserId = ref<number | null>(null)
+const filterAction = ref('')
+const autoRefresh  = ref(true)
+let refreshTimer: ReturnType<typeof setInterval> | null = null
 
-const activeUsers = ref<any[]>([])
-const systemStats = ref({
-  total_active_users: 0,
-  audit_engine_available: false,
-  timestamp: ''
-})
-const auditStats = ref({
-  total_checks: 0,
-  avg_response_time: 0,
-  hopping_detected: 0
-})
-const roomMonitor = ref({
-  running: false,
-  current_room_id: null as string | null,
-  stats: { total_scans: 0 }
+// ---- computed ------------------------------------------------------------
+const totalPages  = computed(() => Math.ceil(total.value / pageSize.value))
+const uniqueUsers = computed(() => new Set(logs.value.map(l => l.user_id)).size)
+const avgDuration = computed(() => {
+  const withDur = logs.value.filter(l => l.duration != null)
+  if (!withDur.length) return 0
+  return Math.round(withDur.reduce((s, l) => s + (l.duration ?? 0), 0) / withDur.length)
 })
 
-// --- 2. 计算属性 ---
-const suspiciousCount = computed(() => activeUsers.value.filter(u => u.status === 'SUSPICIOUS').length)
-const riskTrackingCount = computed(() => activeUsers.value.filter(u => u.status === 'RISK_TRACKING').length)
+// ---- helpers -------------------------------------------------------------
+function formatTs(iso: string): string {
+  return new Date(iso).toLocaleString('zh-CN', { hour12: false })
+}
 
-// --- 3. 表格配置 ---
-const columns = [
-  { title: '员工/终端', slotName: 'username', width: 200 },
-  { title: '申报状态', slotName: 'status', width: 120 },
-  { title: '直播软件位置', dataIndex: 'room_id', width: 150 },
-  { title: '停留', slotName: 'stay_duration', width: 120 },
-  { title: '上帝判定', slotName: 'judgment', width: 150 },
-  { title: '异常/判定依据', dataIndex: 'context_reason' },
-  { title: '操作', slotName: 'operations', width: 100 }
-]
-
-// --- 4. 核心逻辑 ---
-const refreshData = async () => {
-  loading.value = true;
+// ---- data ----------------------------------------------------------------
+async function loadLogs() {
+  loading.value = true
   try {
-    // 使用统一的API客户端
-    const response = await supervisorApi.getRealtimeStatus();
-    
-    if (response.success) {
-      activeUsers.value = (response.active_users || []).sort((a: any, b: any) => {
-        if (a.status === 'SUSPICIOUS' && b.status !== 'SUSPICIOUS') return -1;
-        return a.status !== 'SUSPICIOUS' && b.status === 'SUSPICIOUS' ? 1 : 0;
-      });
-      systemStats.value = response.system || systemStats.value;
-      auditStats.value = response.audit_stats || auditStats.value;
-      roomMonitor.value = response.room_monitor || roomMonitor.value;
-      lastUpdateTime.value = new Date().toLocaleTimeString('zh-CN', {
-        hour12: false,
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-      });
-      lastError.value = '';
+    const params: Parameters<typeof rbacApi.getActionLogs>[0] = {
+      page:      page.value,
+      page_size: pageSize.value,
     }
-  } catch (err: any) {
-    console.error('刷新数据失败:', err);
-    lastError.value = err.message || '网络请求失败';
+    if (filterUserId.value !== null) params.user_id = filterUserId.value
+    if (filterAction.value)          params.action  = filterAction.value
+    const res = await rbacApi.getActionLogs(params)
+    logs.value  = res.items
+    total.value = res.total
+  } catch {
+    Message.error('加载日志失败')
   } finally {
-    loading.value = false;
+    loading.value = false
   }
-};
-
-const toggleAutoRefresh = () => {
-  autoRefreshEnabled.value = !autoRefreshEnabled.value
-  autoRefreshEnabled.value ? startAutoRefresh() : stopAutoRefresh()
 }
 
-const startAutoRefresh = () => {
-  stopAutoRefresh()
-  refreshTimer.value = setInterval(refreshData, 5000)
+async function loadActiveUsers() {
+  try {
+    const res = await rbacApi.getActiveUsers()
+    activeUsers.value = res.users
+  } catch {
+    // non-critical
+  }
 }
 
-const stopAutoRefresh = () => {
-  if (refreshTimer.value) clearInterval(refreshTimer.value)
+function onPageChange(p: number) {
+  page.value = p
+  loadLogs()
 }
 
-// --- 5. 样式辅助函数 ---
-const getStatusColor = (s: string) => {
-  const map: any = { 'NORMAL': 'blue', 'SUSPICIOUS': 'red', 'RISK_TRACKING': 'green', 'EXEMPTED': 'purple' }
-  return map[s] || 'gray'
+function toggleAutoRefresh() {
+  autoRefresh.value = !autoRefresh.value
+  if (autoRefresh.value) startAutoRefresh()
+  else if (refreshTimer) clearInterval(refreshTimer)
 }
 
-const getStatusText = (s: string) => {
-  const map: any = { 'NORMAL': '正常', 'SUSPICIOUS': '异常', 'RISK_TRACKING': '风险追踪', 'EXEMPTED': '业务豁免' }
-  return map[s] || s
+function startAutoRefresh() {
+  if (refreshTimer) clearInterval(refreshTimer)
+  refreshTimer = setInterval(() => {
+    if (page.value === 1) loadLogs()
+  }, 15_000)
 }
 
-const getStatusIcon = (s: string) => {
-  if (s === 'SUSPICIOUS') return IconExclamationCircle
-  if (s === 'RISK_TRACKING') return IconNotification
-  return IconCheckCircle
-}
-
-const getJudgmentText = (s: string) => {
-  if (s === 'SUSPICIOUS') return '疑似挂机/跳房'
-  if (s === 'NORMAL') return '审核作业中'
-  return '系统豁免'
-}
-
-const getRowClassName = (record: any) => {
-  if (record.status === 'SUSPICIOUS') return 'row-suspicious'
-  if (record.status === 'RISK_TRACKING') return 'row-risk'
-  return ''
-}
-
-const getUserColor = (id: number) => ['#165dff', '#00b42a', '#ff7d00', '#f53f3f'][id % 4]
-
-const formatDuration = (s: number) => s < 60 ? `${s}秒` : `${Math.floor(s/60)}分${s%60}秒`
-
-const showUserDetail = (r: any) => Message.info(`正在深度追踪: ${r.full_name}`)
-
-const exportData = () => Message.success('实时战报导出成功')
-
-// --- 6. 生命周期 ---
-onMounted(() => {
-  refreshData()
+// ---- lifecycle -----------------------------------------------------------
+onMounted(async () => {
+  await Promise.all([loadLogs(), loadActiveUsers()])
   startAutoRefresh()
 })
 
-onUnmounted(() => stopAutoRefresh())
+onUnmounted(() => {
+  if (refreshTimer) clearInterval(refreshTimer)
+})
 </script>
 
-<style scoped lang="less">
-.shadow-audit-dashboard {
-  padding: 16px;
+<style scoped>
+.shadow-audit-page { padding: 0; }
+
+.page-header {
   display: flex;
-  flex-direction: column;
-  gap: 16px;
-  background-color: var(--color-fill-2);
-  min-height: 100vh;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.header-left { display: flex; align-items: center; gap: 12px; }
+.page-title { font-size: 20px; font-weight: 600; color: var(--color-text-1); }
 
-  .status-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    .status-item {
-      display: flex;
-      flex-direction: column;
-      .status-label { font-size: 12px; color: var(--color-text-3); }
-      .status-value { 
-        font-size: 14px; font-weight: bold; 
-        &.status-success { color: #00b42a; }
-        &.status-error { color: #f53f3f; }
-      }
-    }
-  }
+.stat-row { margin-bottom: 20px; }
+.stat-card { border-radius: 8px; }
+.table-card { border-radius: 8px; }
 
-  .radar-card {
-    border-radius: 8px;
-    :deep(.arco-card-header) { border-bottom: none; }
-    .radar-title { display: flex; align-items: center; gap: 8px; font-weight: bold; }
-  }
-
-  .table-footer {
-    padding: 12px 16px;
-    display: flex;
-    justify-content: space-between;
-    background-color: var(--color-fill-1);
-    font-size: 13px;
-    .color-red b { color: #f53f3f; }
-    .color-green b { color: #00b42a; }
-  }
-
-  .monitor-info-grid {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    font-size: 13px;
-  }
-
-  .stat-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 6px 0;
-    border-bottom: 1px solid var(--color-fill-3);
-    font-size: 13px;
-  }
-
-  :deep(.row-suspicious) {
-    background-color: rgba(245, 63, 63, 0.05) !important;
-    .arco-table-td { color: #f53f3f !important; font-weight: 600; }
-  }
-
-  :deep(.row-risk) {
-    background-color: rgba(0, 180, 42, 0.05) !important;
-  }
+.ts-cell {
+  font-family: 'SF Mono', 'Cascadia Code', monospace;
+  font-size: 12px;
+  color: var(--color-text-2);
 }
 </style>

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="shift-leader-view">
     <!-- 审核员视图部分 -->
     <AuditorView />
@@ -36,8 +36,8 @@
                     <div class="user-info">
                       <div class="user-name">{{ user.username }}</div>
                       <div class="user-role">
-                        <a-tag :color="getRoleColor(user.role)" size="small">
-                          {{ getRoleLabel(user.role) }}
+                        <a-tag :color="getUserColor(user.role)" size="small">
+                          {{ permissionStore.allRoles.find((r) => r.value === user.role)?.label ?? user.role }}
                         </a-tag>
                       </div>
                     </div>
@@ -236,12 +236,12 @@ import {
   UserRole,
   TaskChannel,
   ShiftType,
-  getRoleLabel,
-  getRoleColor,
   getShiftTypeLabel
 } from '@/api/rbac'
+import { usePermissionStore } from '@/stores/permission'
 
 // 响应式数据
+const permissionStore = usePermissionStore()
 const activeUsers = ref<ActiveUser[]>([])
 const selectedUsers = ref<number[]>([])
 const shiftDate = ref<string>(dayjs().format('YYYY-MM-DD'))
@@ -268,13 +268,12 @@ const canDispatch = computed(() => {
 })
 
 // 工具函数
-const getUserColor = (role: UserRole) => {
-  const colors: Record<UserRole, string> = {
-    [UserRole.MANAGER]: '#f5222d',
-    [UserRole.LEADER]: '#fa8c16',
-    [UserRole.AUDITOR]: '#52c41a'
+const getUserColor = (role: string): string => {
+  const colors: Record<string, string> = {
+    manager: '#f5222d', team_leader: '#fa8c16',
+    qa_specialist: '#722ed1', admin_support: '#13c2c2', auditor: '#52c41a',
   }
-  return colors[role] || '#1890ff'
+  return colors[role] ?? '#1890ff'
 }
 
 const getChannelColor = (channel: TaskChannel | string) => {
@@ -313,7 +312,7 @@ const getFairnessNote = (historicalCount: number) => {
 const loadActiveUsers = async () => {
   loadingUsers.value = true
   try {
-    const response = await rbacApi.getActiveUsers(UserRole.AUDITOR)
+    const response = await rbacApi.getActiveUsers('auditor')
     activeUsers.value = response.users.filter(user => user.is_active)
     Message.success(`已加载 ${activeUsers.value.length} 名审核员`)
   } catch (error) {
