@@ -51,23 +51,9 @@ const loadConfig = (): AppConfig => {
   // 确定当前环境
   const environment = (env.VITE_ENV || 'development') as Environment
   
-  // 根据环境选择API地址
+  // 固定使用后端地址（避免环境变量干扰）
   const getApiBaseUrl = () => {
-    // 优先使用显式配置的URL
-    if (env.VITE_API_BASE_URL) {
-      return env.VITE_API_BASE_URL
-    }
-    
-    // 根据环境选择默认URL
-    switch (environment) {
-      case 'production':
-        return env.VITE_PROD_API_URL || 'http://106.15.32.246:8000'
-      case 'test':
-        return env.VITE_TEST_API_URL || 'http://106.15.32.246:8000'
-      case 'development':
-      default:
-        return 'http://106.15.32.246:8000'
-    }
+    return 'http://106.15.32.246:8000'
   }
   
   return {
