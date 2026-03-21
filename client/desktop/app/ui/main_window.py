@@ -2,7 +2,7 @@
 """
 Main application window - PyQt6 WebEngine container.
 
-Loads the compiled Vue frontend from web_client/dist/index.html and
+Loads the compiled Vue frontend from client/web/dist/index.html and
 exposes AppBridge via QWebChannel so Vue communicates with Python
 without any HTTP server.
 
@@ -19,7 +19,7 @@ from PyQt6.QtGui import QCloseEvent
 from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtWebEngineCore import QWebEngineSettings
 from PyQt6.QtWebEngineWidgets import QWebEngineView
-from PyQt6.QtWidgets import QMainWindow, QMessageBox, QWidget, QApplication
+from PyQt6.QtWidgets import QApplication, QMainWindow, QMessageBox, QWidget
 
 from client.desktop.app.bridge.web_channel import AppBridge
 from client.desktop.config.settings import AppSettings
@@ -27,13 +27,41 @@ from client.desktop.config.settings import AppSettings
 logger = logging.getLogger(__name__)
 
 
+def _extract_user_field(token_info: dict, field: str, default: str = "") -> str:
+    """Extract a field from token_info, checking both top-level and user sub-dict.
+
+    Server response structure::
+
+        {
+            "access_token": "...",
+            "user": {"username": "...", "role": "...", ...},
+            "permissions": [...],
+            "role_meta": {...}
+        }
+
+    Args:
+        token_info: The full login response dict.
+        field:      Field name to look up (e.g. ``"username"``).
+        default:    Fallback value if field is not found.
+
+    Returns:
+        String value or *default*.
+    """
+    user_sub = token_info.get("user") or {}
+    return (
+        user_sub.get(field)
+        or token_info.get(field)
+        or default
+    )
+
+
 class MainWindow(QMainWindow):
     """Primary application window hosting the Vue WebEngine frontend.
 
     Args:
-        settings: Application settings dataclass.
-        token_info: Decoded JWT payload from the login step.
-        parent: Optional parent widget.
+        settings:   Application settings dataclass.
+        token_info: Full login response dict from the Python login step.
+        parent:     Optional parent widget.
     """
 
     def __init__(
@@ -51,11 +79,10 @@ class MainWindow(QMainWindow):
 
         self._setup_window()
         self._setup_webengine()
-        logger.info(
-            "MainWindow ready: user=%s role=%s",
-            token_info.get("username", "?"),
-            token_info.get("role", "?"),
-        )
+
+        username = _extract_user_field(token_info, "username", "?")
+        role = _extract_user_field(token_info, "role", "?")
+        logger.info("MainWindow ready: user=%s role=%s", username, role)
 
     @property
     def bridge(self) -> AppBridge:
@@ -67,13 +94,13 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def _setup_window(self) -> None:
-        username = self._token_info.get("username", "user")
-        role     = self._token_info.get("role",     "UNKNOWN")
+        username = _extract_user_field(self._token_info, "username", "user")
+        role = _extract_user_field(self._token_info, "role", "UNKNOWN")
         self.setWindowTitle(f"AHDUNYI Terminal PRO  -  {username}  ({role})")
         self.resize(self._settings.gui.window_width, self._settings.gui.window_height)
         screen = QApplication.primaryScreen().geometry()
         self.move(
-            (screen.width()  - self.width())  // 2,
+            (screen.width() - self.width()) // 2,
             (screen.height() - self.height()) // 2,
         )
 
@@ -89,8 +116,12 @@ class MainWindow(QMainWindow):
         # WebEngine settings
         ws = self._view.page().settings()
         ws.setAttribute(QWebEngineSettings.WebAttribute.JavascriptEnabled, True)
-        ws.setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
-        ws.setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessFileUrls, True)
+        ws.setAttribute(
+            QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True
+        )
+        ws.setAttribute(
+            QWebEngineSettings.WebAttribute.LocalContentCanAccessFileUrls, True
+        )
 
         # Load frontend
         index_html = self._settings.web_client_dist / "index.html"
@@ -103,23 +134,23 @@ class MainWindow(QMainWindow):
     def _show_build_error(self, dist_path: Path) -> None:
         logger.error("Frontend dist not found: %s", dist_path)
         self._view.setHtml(
-            """<!DOCTYPE html><html lang=\"en\">
-            <head><meta charset=\"utf-8\">
-            <style>
-              body{margin:0;background:#0d0f1a;color:#e2e8f0;
-                   font-family:Consolas,monospace;
-                   display:flex;align-items:center;justify-content:center;
-                   height:100vh;flex-direction:column;gap:16px}
-              h2{color:#f87171}
-              code{background:#1e2440;padding:4px 10px;border-radius:6px;color:#4f8ef7}
-            </style></head>
-            <body>
-              <h2>Frontend not built</h2>
-              <p>Build the Vue frontend first:</p>
-              <code>cd web_client &amp;&amp; npm install &amp;&amp; npm run build</code>
-              <p>Or use the automated build script:</p>
-              <code>python build/build.py</code>
-            </body></html>"""
+            '<!DOCTYPE html><html lang="en">'
+            '<head><meta charset="utf-8">'
+            "<style>"
+            "body{margin:0;background:#0d0f1a;color:#e2e8f0;"
+            "font-family:Consolas,monospace;"
+            "display:flex;align-items:center;justify-content:center;"
+            "height:100vh;flex-direction:column;gap:16px}"
+            "h2{color:#f87171}"
+            "code{background:#1e2440;padding:4px 10px;border-radius:6px;color:#4f8ef7}"
+            "</style></head>"
+            "<body>"
+            "<h2>Frontend not built</h2>"
+            "<p>Build the Vue frontend first:</p>"
+            "<code>cd client/web &amp;&amp; npm install &amp;&amp; npm run build</code>"
+            "<p>Or use the automated build script:</p>"
+            "<code>python client/build/build.py</code>"
+            "</body></html>"
         )
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802

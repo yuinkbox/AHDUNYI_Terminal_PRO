@@ -306,10 +306,12 @@ class LoginWindow(QWidget):
         self._thread.start()
 
     def _on_success(self, token_info: dict) -> None:
+        # Server response: {access_token, user:{username,role,...}, permissions, role_meta}
+        user = token_info.get("user") or {}
         logger.info(
             "Login success: user=%s role=%s",
-            token_info.get("username", "?"),
-            token_info.get("role", "?"),
+            user.get("username", "?"),
+            user.get("role", token_info.get("role", "?")),
         )
         self._show_status("Login successful. Loading workspace...", self._C_OK)
         self._set_loading(False)
