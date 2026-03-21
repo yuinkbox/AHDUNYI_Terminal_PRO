@@ -8,7 +8,7 @@
  * 新增角色或调整权限：只需修改后端 permissions.py，前端零改动。
  */
 
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHistory, createWebHashHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 import { Message } from '@arco-design/web-vue'
 import { auth } from '@/utils/auth'
@@ -130,8 +130,10 @@ const routes: RouteRecordRaw[] = [
   },
 ]
 
+// file:// protocol (PyQt6 WebEngine) requires hash history;
+// HTTP server mode works with either, so we use hash universally.
 const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
+  history: createWebHashHistory(import.meta.env.BASE_URL),
   routes,
   scrollBehavior: (_to, _from, savedPosition) => savedPosition || { top: 0 },
 })

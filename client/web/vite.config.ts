@@ -10,6 +10,9 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [vue()],
 
+    // Use relative base so assets load correctly from file:// (PyQt6 WebEngine)
+    base: './',
+
     resolve: {
       alias: {
         '@': resolve(__dirname, 'src'),
