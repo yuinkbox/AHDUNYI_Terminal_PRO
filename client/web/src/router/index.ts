@@ -13,6 +13,7 @@ import type { RouteRecordRaw } from 'vue-router'
 import { Message } from '@arco-design/web-vue'
 import { auth } from '@/utils/auth'
 import { usePermissionStore } from '@/stores/permission'
+import { isDesktopMode } from '@/bridge/qt_channel'
 
 import MainLayout from '@/layouts/MainLayout.vue'
 
@@ -141,6 +142,22 @@ const router = createRouter({
 router.beforeEach((to, _from, next) => {
   if (to.meta.title) {
     document.title = `${to.meta.title} - AHDUNYI 巡查终端`
+  }
+
+  // Desktop (PyQt6) mode: authentication is handled by the native Python
+  // LoginWindow. The token is injected into localStorage via runJavaScript
+  // AFTER the page loads. Skip all auth/permission guards and let the
+  // page components handle token-readiness via the ahdunyi:token-ready event.
+  if (isDesktopMode()) {
+    // Only block routes that explicitly require a permission (not just auth)
+    // and only after the permission store is hydrated.
+    if (to.name === 'Login') {
+      // In desktop mode never show the Vue login page — go to dashboard
+      next({ name: 'Dashboard' })
+      return
+    }
+    next()
+    return
   }
 
   const token      = auth.getToken()

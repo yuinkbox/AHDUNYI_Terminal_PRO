@@ -112,6 +112,7 @@ import api from '@/api'
 import config from '@/config'
 import { auth } from '@/utils/auth'
 import { usePermissionStore } from '@/stores/permission'
+import { isDesktopMode } from '@/bridge/qt_channel'
 
 const router = useRouter()
 const route  = useRoute()
@@ -138,6 +139,39 @@ const canLogin = computed(() => username.value.trim().length > 0 && password.val
 // ---- 生命周期 --------------------------------------------------------------
 onMounted(() => {
   document.title = 'AHDUNYI 巡查终端 - 登录'
+
+  // Desktop (PyQt6) mode: login is handled by the native Python window.
+  // The token is injected via runJavaScript into localStorage.
+  // If we arrive here it means the token-ready event fired before Vue
+  // mounted — check localStorage directly and redirect immediately.
+  if (isDesktopMode()) {
+    const token = auth.getToken()
+    const user  = auth.getUserInfo()
+    if (token && user) {
+      const permissionStore = usePermissionStore()
+      const permRaw = localStorage.getItem('ahdunyi_permissions')
+      if (permRaw) {
+        try {
+          const perm = JSON.parse(permRaw)
+          permissionStore.bootstrap({
+            role: perm.role ?? user.role ?? '',
+            permissions: perm.permissions ?? [],
+            role_meta: perm.role_meta ?? { label: '', color: 'gray', dashboard_view: 'auditor' },
+          })
+        } catch { /* ignore */ }
+      }
+      router.replace({ name: 'Dashboard' })
+      return
+    }
+    // Token not yet available — wait for injection event
+    window.addEventListener('ahdunyi:token-ready', () => {
+      const t = auth.getToken()
+      const u = auth.getUserInfo()
+      if (t && u) router.replace({ name: 'Dashboard' })
+    }, { once: true })
+    return
+  }
+
   loadRememberedAccount()
   checkBackend()
 })
