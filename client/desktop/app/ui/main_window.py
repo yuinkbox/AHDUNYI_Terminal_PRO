@@ -6,10 +6,19 @@ Loads the compiled Vue frontend from client/web/dist/index.html and
 exposes AppBridge via QWebChannel so Vue communicates with Python
 without any HTTP server.
 
+Token injection strategy
+------------------------
+The Python LoginWindow authenticates BEFORE the Vue page loads.
+QWebChannel signals fired before page-load are missed by JS listeners.
+Instead, on ``loadFinished`` we inject the full login response directly
+into ``localStorage`` via ``runJavaScript``, then dispatch a custom
+``ahdunyi:token-ready`` event so Vue can react immediately.
+
 Author : AHDUNYI
 Version: 9.0.0
 """
 
+import json
 import logging
 from pathlib import Path
 from typing import Optional
@@ -28,41 +37,13 @@ logger = logging.getLogger(__name__)
 
 
 def _extract_user_field(token_info: dict, field: str, default: str = "") -> str:
-    """Extract a field from token_info, checking both top-level and user sub-dict.
-
-    Server response structure::
-
-        {
-            "access_token": "...",
-            "user": {"username": "...", "role": "...", ...},
-            "permissions": [...],
-            "role_meta": {...}
-        }
-
-    Args:
-        token_info: The full login response dict.
-        field:      Field name to look up (e.g. ``"username"``).
-        default:    Fallback value if field is not found.
-
-    Returns:
-        String value or *default*.
-    """
+    """Extract a field from token_info, checking user sub-dict then top-level."""
     user_sub = token_info.get("user") or {}
-    return (
-        user_sub.get(field)
-        or token_info.get(field)
-        or default
-    )
+    return user_sub.get(field) or token_info.get(field) or default
 
 
 class MainWindow(QMainWindow):
-    """Primary application window hosting the Vue WebEngine frontend.
-
-    Args:
-        settings:   Application settings dataclass.
-        token_info: Full login response dict from the Python login step.
-        parent:     Optional parent widget.
-    """
+    """Primary application window hosting the Vue WebEngine frontend."""
 
     def __init__(
         self,
@@ -86,7 +67,7 @@ class MainWindow(QMainWindow):
 
     @property
     def bridge(self) -> AppBridge:
-        """Return the AppBridge instance for wiring external data sources."""
+        """Return the AppBridge instance."""
         return self._bridge
 
     # ------------------------------------------------------------------
@@ -123,6 +104,9 @@ class MainWindow(QMainWindow):
             QWebEngineSettings.WebAttribute.LocalContentCanAccessFileUrls, True
         )
 
+        # Inject token into localStorage once the page has fully loaded
+        self._view.loadFinished.connect(self._on_load_finished)
+
         # Load frontend
         index_html = self._settings.web_client_dist / "index.html"
         if index_html.exists():
@@ -130,6 +114,66 @@ class MainWindow(QMainWindow):
             logger.info("WebEngine loading: %s", index_html)
         else:
             self._show_build_error(self._settings.web_client_dist)
+
+    def _on_load_finished(self, ok: bool) -> None:
+        """Called by WebEngine after every page load.
+
+        Injects the JWT token and user info directly into localStorage so
+        the Vue app can read them synchronously before any route guard runs.
+        Also dispatches ``ahdunyi:token-ready`` so Vue can react instantly.
+
+        Args:
+            ok: True if the page loaded successfully.
+        """
+        if not ok:
+            logger.warning("WebEngine page load failed.")
+            return
+
+        token = self._token_info.get("access_token", "")
+        user = self._token_info.get("user") or {}
+        permissions = self._token_info.get("permissions") or []
+        role_meta = self._token_info.get("role_meta") or {}
+        role = user.get("role") or self._token_info.get("role", "")
+
+        if not token:
+            logger.warning("_on_load_finished: no access_token in token_info")
+            return
+
+        # Serialise payloads for JS injection
+        token_json = json.dumps(token)
+        user_json = json.dumps(user)
+        perm_data = json.dumps({
+            "role": role,
+            "permissions": permissions,
+            "role_meta": role_meta,
+        })
+
+        js = f"""
+(function() {{
+  try {{
+    localStorage.setItem('ahdunyi_access_token', {token_json});
+    localStorage.setItem('ahdunyi_user_info',   {user_json});
+    localStorage.setItem('ahdunyi_permissions', {perm_data});
+    console.info('[PyBridge] Token injected into localStorage for user: ' +
+      ({user_json}.username || '?'));
+    window.dispatchEvent(new CustomEvent('ahdunyi:token-ready', {{
+      detail: {{
+        access_token: {token_json},
+        user: {user_json},
+        permissions: {perm_data}
+      }}
+    }}));
+  }} catch(e) {{
+    console.error('[PyBridge] Token injection failed:', e);
+  }}
+}})();
+"""
+        self._view.page().runJavaScript(js)
+        logger.info(
+            "Token injected into WebEngine localStorage: user=%s role=%s",
+            user.get("username", "?"),
+            role,
+        )
 
     def _show_build_error(self, dist_path: Path) -> None:
         logger.error("Frontend dist not found: %s", dist_path)
@@ -148,8 +192,6 @@ class MainWindow(QMainWindow):
             "<h2>Frontend not built</h2>"
             "<p>Build the Vue frontend first:</p>"
             "<code>cd client/web &amp;&amp; npm install &amp;&amp; npm run build</code>"
-            "<p>Or use the automated build script:</p>"
-            "<code>python client/build/build.py</code>"
             "</body></html>"
         )
 
