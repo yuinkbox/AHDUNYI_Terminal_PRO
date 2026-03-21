@@ -38,7 +38,7 @@ def _resource_root() -> Path:
 
 @dataclass
 class ServerConfig:
-    url: str = "http://127.0.0.1:8000"
+    url: str = "http://106.15.32.246:8000"
 
 
 @dataclass
@@ -97,8 +97,13 @@ class AppSettings:
 
     @property
     def web_client_dist(self) -> Path:
-        """Absolute path to the compiled Vue frontend dist folder."""
-        return self.resource_root / "web_client" / "dist"
+        """Absolute path to the compiled Vue frontend dist folder.
+
+        PyInstaller packs the dist folder as ``client/web/dist`` inside
+        _MEIPASS (matching the datas entry in AHDUNYI.spec).
+        In development the path resolves to the actual monorepo location.
+        """
+        return self.resource_root / "client" / "web" / "dist"
 
 
 # ---------------------------------------------------------------------------

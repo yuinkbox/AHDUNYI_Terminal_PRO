@@ -1,0 +1,29 @@
+{
+  "display_name": "AHDUNYI Terminal PRO",
+  "server": {
+    "url": "http://106.15.32.246:8000"
+  },
+  "gui": {
+    "window_width": 1440,
+    "window_height": 900
+  },
+  "logging": {
+    "level": "INFO",
+    "file": "client.log"
+  },
+  "paths": {
+    "logs_directory": "logs",
+    "data_directory": "data"
+  },
+  "room_monitor": {
+    "target_process": "small_dimple.exe",
+    "heartbeat_interval": 2.0,
+    "max_search_depth": 8
+  },
+  "features": {
+    "auto_start_monitor": true
+  },
+  "debug": {
+    "enable_console": false
+  }
+}
