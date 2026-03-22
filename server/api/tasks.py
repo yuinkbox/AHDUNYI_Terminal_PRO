@@ -47,6 +47,7 @@ def _cst_now() -> datetime:
     """Return current datetime in CST."""
     return datetime.now(CST)
 
+
 router = APIRouter(tags=["tasks"])
 
 
