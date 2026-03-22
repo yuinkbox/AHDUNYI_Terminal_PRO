@@ -85,28 +85,30 @@
         stripe
         size="small"
       >
-        <a-table-column title="时间" :width="160">
-          <template #cell="{ record }">
-            <span class="ts-cell">{{ formatTs(record.timestamp) }}</span>
-          </template>
-        </a-table-column>
-        <a-table-column title="用户" :width="120">
-          <template #cell="{ record }">
-            <a-tag color="blue" size="small">{{ record.username }}</a-tag>
-          </template>
-        </a-table-column>
-        <a-table-column title="操作" data-index="action" :width="140" />
-        <a-table-column title="详情" data-index="details" />
-        <a-table-column title="时长(ms)" data-index="duration" :width="100">
-          <template #cell="{ record }">
-            <span :style="{ color: record.duration > 5000 ? '#f53f3f' : 'inherit' }">
-              {{ record.duration ?? '-' }}
-            </span>
-          </template>
-        </a-table-column>
-        <a-table-column title="任务ID" data-index="task_id" :width="90">
-          <template #cell="{ record }">{{ record.task_id ?? '-' }}</template>
-        </a-table-column>
+        <template #columns>
+          <a-table-column title="时间" :width="160">
+            <template #cell="{ record }">
+              <span class="ts-cell">{{ formatTs(record.timestamp) }}</span>
+            </template>
+          </a-table-column>
+          <a-table-column title="用户" :width="120">
+            <template #cell="{ record }">
+              <a-tag color="blue" size="small">{{ record.username }}</a-tag>
+            </template>
+          </a-table-column>
+          <a-table-column title="操作" data-index="action" :width="140" />
+          <a-table-column title="详情" data-index="details" />
+          <a-table-column title="时长(ms)" data-index="duration" :width="100">
+            <template #cell="{ record }">
+              <span :style="{ color: record.duration > 5000 ? '#f53f3f' : 'inherit' }">
+                {{ record.duration ?? '-' }}
+              </span>
+            </template>
+          </a-table-column>
+          <a-table-column title="任务ID" data-index="task_id" :width="90">
+            <template #cell="{ record }">{{ record.task_id ?? '-' }}</template>
+          </a-table-column>
+        </template>
       </a-table>
     </a-card>
   </div>

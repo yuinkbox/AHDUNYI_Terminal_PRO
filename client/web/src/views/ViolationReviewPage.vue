@@ -71,52 +71,54 @@
         row-key="id"
         stripe
       >
-        <a-table-column title="日期" data-index="shift_date" :width="110" />
-        <a-table-column title="班次">
-          <template #cell="{ record }">{{ shiftLabel(record.shift_type) }}</template>
-        </a-table-column>
-        <a-table-column title="通道">
-          <template #cell="{ record }">
-            <a-tag :color="channelColor(record.task_channel)">
-              {{ channelLabel(record.task_channel) }}
-            </a-tag>
-          </template>
-        </a-table-column>
-        <a-table-column title="审核量" data-index="reviewed_count" :sortable="{ sortDirections: ['ascend','descend'] }" />
-        <a-table-column title="违规数" data-index="violation_count" :sortable="{ sortDirections: ['ascend','descend'] }">
-          <template #cell="{ record }">
-            <span :style="{ color: record.violation_count > 0 ? '#f53f3f' : 'inherit' }">
-              {{ record.violation_count }}
-            </span>
-          </template>
-        </a-table-column>
-        <a-table-column title="违规率">
-          <template #cell="{ record }">
-            <a-progress
-              :percent="record.reviewed_count
-                ? Math.round((record.violation_count / record.reviewed_count) * 100)
-                : 0"
-              size="small"
-              :status="(record.violation_count / (record.reviewed_count || 1)) > 0.05
-                ? 'danger' : 'normal'"
-            />
-          </template>
-        </a-table-column>
-        <a-table-column title="状态">
-          <template #cell="{ record }">
-            <a-badge
-              :status="record.is_completed ? 'success' : 'processing'"
-              :text="record.is_completed ? '已完成' : '进行中'"
-            />
-          </template>
-        </a-table-column>
-        <a-table-column title="操作" :width="100">
-          <template #cell="{ record }">
-            <a-button type="text" size="small" @click="viewDetail(record)">
-              <template #icon><icon-eye /></template>详情
-            </a-button>
-          </template>
-        </a-table-column>
+        <template #columns>
+          <a-table-column title="日期" data-index="shift_date" :width="110" />
+          <a-table-column title="班次">
+            <template #cell="{ record }">{{ shiftLabel(record.shift_type) }}</template>
+          </a-table-column>
+          <a-table-column title="通道">
+            <template #cell="{ record }">
+              <a-tag :color="channelColor(record.task_channel)">
+                {{ channelLabel(record.task_channel) }}
+              </a-tag>
+            </template>
+          </a-table-column>
+          <a-table-column title="审核量" data-index="reviewed_count" :sortable="{ sortDirections: ['ascend','descend'] }" />
+          <a-table-column title="违规数" data-index="violation_count" :sortable="{ sortDirections: ['ascend','descend'] }">
+            <template #cell="{ record }">
+              <span :style="{ color: record.violation_count > 0 ? '#f53f3f' : 'inherit' }">
+                {{ record.violation_count }}
+              </span>
+            </template>
+          </a-table-column>
+          <a-table-column title="违规率">
+            <template #cell="{ record }">
+              <a-progress
+                :percent="record.reviewed_count
+                  ? Math.round((record.violation_count / record.reviewed_count) * 100)
+                  : 0"
+                size="small"
+                :status="(record.violation_count / (record.reviewed_count || 1)) > 0.05
+                  ? 'danger' : 'normal'"
+              />
+            </template>
+          </a-table-column>
+          <a-table-column title="状态">
+            <template #cell="{ record }">
+              <a-badge
+                :status="record.is_completed ? 'success' : 'processing'"
+                :text="record.is_completed ? '已完成' : '进行中'"
+              />
+            </template>
+          </a-table-column>
+          <a-table-column title="操作" :width="100">
+            <template #cell="{ record }">
+              <a-button type="text" size="small" @click="viewDetail(record)">
+                <template #icon><icon-eye /></template>详情
+              </a-button>
+            </template>
+          </a-table-column>
+        </template>
       </a-table>
     </a-card>
 

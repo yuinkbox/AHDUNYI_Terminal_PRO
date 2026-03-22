@@ -347,28 +347,30 @@
             </div>
           </template>
           <a-table :data="todayTasks" :loading="loading" :pagination="false" row-key="id" stripe size="small">
-            <a-table-column title="审核通道" data-index="task_channel">
-              <template #cell="{ record }">
-                <a-tag :color="channelColor(record.task_channel)" size="small">{{ channelLabel(record.task_channel) }}</a-tag>
+            <template #columns>
+              <a-table-column title="审核通道" data-index="task_channel">
+                <template #cell="{ record }">
+                  <a-tag :color="channelColor(record.task_channel)" size="small">{{ channelLabel(record.task_channel) }}</a-tag>
                 </template>
-            </a-table-column>
-            <a-table-column title="班次" data-index="shift_type">
-              <template #cell="{ record }">{{ shiftLabel(record.shift_type) }}</template>
-            </a-table-column>
-            <a-table-column title="已审" data-index="reviewed_count" :width="70" />
-            <a-table-column title="违规" data-index="violation_count" :width="70" />
-            <a-table-column title="状态" :width="90">
-              <template #cell="{ record }">
-                <a-badge :status="record.is_completed ? 'success' : 'processing'"
-                  :text="record.is_completed ? '已完成' : '进行中'" />
+              </a-table-column>
+              <a-table-column title="班次" data-index="shift_type">
+                <template #cell="{ record }">{{ shiftLabel(record.shift_type) }}</template>
+              </a-table-column>
+              <a-table-column title="已审" data-index="reviewed_count" :width="70" />
+              <a-table-column title="违规" data-index="violation_count" :width="70" />
+              <a-table-column title="状态" :width="90">
+                <template #cell="{ record }">
+                  <a-badge :status="record.is_completed ? 'success' : 'processing'"
+                    :text="record.is_completed ? '已完成' : '进行中'" />
                 </template>
-            </a-table-column>
-            <a-table-column title="" :width="80">
-              <template #cell="{ record }">
-                <a-button v-if="!record.is_completed" type="text" size="mini"
-                  @click="completeTask(record.id)">完成</a-button>
-                  </template>
-            </a-table-column>
+              </a-table-column>
+              <a-table-column title="" :width="80">
+                <template #cell="{ record }">
+                  <a-button v-if="!record.is_completed" type="text" size="mini"
+                    @click="completeTask(record.id)">完成</a-button>
+                </template>
+              </a-table-column>
+            </template>
           </a-table>
           <div v-if="!loading && todayTasks.length === 0" class="empty-state">
             <a-empty description="今日暂无分配任务">
