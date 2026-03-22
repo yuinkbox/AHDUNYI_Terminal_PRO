@@ -28,6 +28,6 @@
     "auto_start_monitor": true
   },
   "debug": {
-    "enable_console": true
+    "enable_console": false
   }
 }
