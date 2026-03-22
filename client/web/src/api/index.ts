@@ -36,8 +36,11 @@ _http.interceptors.response.use(
     if (status === 401) {
       localStorage.removeItem('ahdunyi_access_token')
       localStorage.removeItem('ahdunyi_user_info')
-      if (!window.location.pathname.includes('/login')) {
-        window.location.href = '/login'
+      // 使用 hash 路由兼容 file:// 协议（桌面端 PyQt6 WebEngine）
+      // window.location.href = '/login' 在 file:// 下会变成 file:///login 导致 ERR_FILE_NOT_FOUND
+      const isOnLogin = window.location.hash.includes('#/login')
+      if (!isOnLogin) {
+        window.location.hash = '#/login'
       }
     }
     return Promise.reject(err)
@@ -71,7 +74,7 @@ export const systemAPI = {
         return { status: 'healthy', ...JSON.parse(raw) }
       }
     }
-    return _http.get('/api/health')
+    return _http.get('/health')
   },
 
   async getSystemStatus(): Promise<any> {

@@ -79,29 +79,33 @@
           {{ loginLoading ? '登录中...' : '立即登录' }}
         </a-button>
 
-        <!-- API 状态提示 -->
-        <div v-if="apiStatus" class="api-status">
-          <a-alert
-            :type="apiStatus.type"
-            :title="apiStatus.title"
-            :content="apiStatus.content"
-            show-icon
-            closable
-            @close="apiStatus = null"
-          />
-        </div>
+        <!-- 登录结果提示 -->
+        <Transition name="alert-slide">
+          <div v-if="apiStatus" class="api-status">
+            <a-alert
+              :type="apiStatus.type"
+              :title="apiStatus.title"
+              :content="apiStatus.content"
+              show-icon
+              closable
+              @close="apiStatus = null"
+            />
+          </div>
+        </Transition>
 
         <!-- 后端连接状态 -->
-        <div class="backend-status" v-if="!backendConnected">
-          <a-alert type="warning" show-icon>
-            <template #icon><icon-wifi /></template>
-            后端服务未连接
-            <template #content>
-              请确保后端服务正在运行 ({{ apiBaseUrl }})
-              <a-link @click="checkBackend"> 点击重试</a-link>
-            </template>
-          </a-alert>
-        </div>
+        <Transition name="alert-slide">
+          <div class="backend-status" v-if="!backendConnected">
+            <a-alert type="warning" show-icon>
+              <template #icon><icon-wifi /></template>
+              后端服务未连接
+              <template #content>
+                请确保后端服务正在运行 ({{ apiBaseUrl }})
+                <a-link @click="checkBackend"> 点击重试</a-link>
+              </template>
+            </a-alert>
+          </div>
+        </Transition>
 
         <!-- 版本信息 -->
         <div class="version-info">
@@ -126,12 +130,12 @@ const route  = useRoute()
 const permissionStore = usePermissionStore()
 
 // ---- 响应式状态 ------------------------------------------------------------
-const username        = ref('')
-const password        = ref('')
-const rememberMe      = ref(false)
-const loginLoading    = ref(false)
+const username         = ref('')
+const password         = ref('')
+const rememberMe       = ref(false)
+const loginLoading     = ref(false)
 const backendConnected = ref(true)
-const apiBaseUrl      = config.api.baseUrl
+const apiBaseUrl       = config.api.baseUrl
 const usernameInputRef = ref()
 const passwordInputRef = ref()
 
@@ -145,85 +149,53 @@ const apiStatus = ref<ApiStatus | null>(null)
 // ---- 计算属性 --------------------------------------------------------------
 const canLogin = computed(() => username.value.trim().length > 0 && password.value.length >= 6)
 
-// ---- 输入校验工具函数 -------------------------------------------------------
+// ---- 输入校验 ---------------------------------------------------------------
 
-/** 检查字符是否为英文字母或数字 */
 function isValidChar(char: string): boolean {
-  return /^[a-zA-Z0-9]$/.test(char)
+  return /^[a-zA-Z0-9_]$/.test(char)
 }
 
-/** 过滤非法字符 */
 function filterValidChars(text: string): string {
   return text.split('').filter(isValidChar).join('')
 }
 
-/** 触发视觉反馈（红色外发光 + 微震动） */
 function triggerInvalidFeedback(inputRef: any) {
   if (!inputRef?.value) return
-
   const inputElement = inputRef.value.$el?.querySelector('input')
   if (!inputElement) return
-
-  // 添加红色外发光效果
   inputElement.classList.add('input-error-glow')
-  setTimeout(() => {
-    inputElement.classList.remove('input-error-glow')
-  }, 600)
-
-  // 微震动效果
-  if (navigator.vibrate) {
-    navigator.vibrate([50, 30, 50])
-  }
-
-  // 显示提示
+  setTimeout(() => inputElement.classList.remove('input-error-glow'), 600)
+  if (navigator.vibrate) navigator.vibrate([50, 30, 50])
   Message.warning('仅支持英文与数字，请切换输入法')
 }
 
-// ---- 用户名输入处理 --------------------------------------------------------
-
 function handleUsernameInput(value: string) {
   const filtered = filterValidChars(value)
-  if (filtered !== value) {
-    username.value = filtered
-    triggerInvalidFeedback(usernameInputRef)
-  }
+  if (filtered !== value) { username.value = filtered; triggerInvalidFeedback(usernameInputRef) }
 }
 
 function handleUsernamePaste(event: ClipboardEvent) {
   event.preventDefault()
   const pastedText = event.clipboardData?.getData('text') || ''
   const filtered = filterValidChars(pastedText)
-  
-  if (filtered !== pastedText) {
-    triggerInvalidFeedback(usernameInputRef)
-  }
-  
+  if (filtered !== pastedText) triggerInvalidFeedback(usernameInputRef)
   username.value += filtered
 }
 
-// ---- 密码输入处理 ----------------------------------------------------------
-
 function handlePasswordInput(value: string) {
   const filtered = filterValidChars(value)
-  if (filtered !== value) {
-    password.value = filtered
-    triggerInvalidFeedback(passwordInputRef)
-  }
+  if (filtered !== value) { password.value = filtered; triggerInvalidFeedback(passwordInputRef) }
 }
 
 function handlePasswordPaste(event: ClipboardEvent) {
   event.preventDefault()
   const pastedText = event.clipboardData?.getData('text') || ''
   const filtered = filterValidChars(pastedText)
-  
-  if (filtered !== pastedText) {
-    triggerInvalidFeedback(passwordInputRef)
-  }
-  
+  if (filtered !== pastedText) triggerInvalidFeedback(passwordInputRef)
   password.value += filtered
 }
 
-// ---- 生命周期 --------------------------------------------------------------
+// ---- 生命周期 ---------------------------------------------------------------
 onMounted(() => {
   document.title = 'HuiInsight 徽鉴 - 登录'
   loadRememberedAccount()
@@ -232,7 +204,6 @@ onMounted(() => {
 
 // ---- 方法 ------------------------------------------------------------------
 
-/** 检查后端连接 */
 async function checkBackend() {
   try {
     const res = await api.system.healthCheck()
@@ -242,16 +213,11 @@ async function checkBackend() {
   }
 }
 
-/** 从 localStorage 恢复记住的账号 */
 function loadRememberedAccount() {
   const lastUsername = auth.getLastUsername()
-  if (lastUsername) {
-    username.value  = lastUsername
-    rememberMe.value = true
-  }
+  if (lastUsername) { username.value = lastUsername; rememberMe.value = true }
 }
 
-/** 核心登录逻辑 */
 async function handleLogin() {
   if (!canLogin.value) return
   loginLoading.value = true
@@ -259,33 +225,21 @@ async function handleLogin() {
   try {
     const loginData = await api.auth.login(username.value, password.value)
 
-    // 1. 持久化 Token 和用户信息
-    auth.saveLoginData(
-      loginData.access_token,
-      loginData.user,
-      rememberMe.value,
-      username.value,
-    )
+    auth.saveLoginData(loginData.access_token, loginData.user, rememberMe.value, username.value)
 
-    // 2. 水合权限 Store（前端零角色硬编码的核心步骤）
     permissionStore.bootstrap({
-      role:       loginData.user.role,
+      role:        loginData.user.role,
       permissions: loginData.permissions  ?? [],
-      role_meta:  loginData.role_meta ?? {
-        label:          loginData.user.role,
-        color:          'gray',
-        dashboard_view: 'auditor',
+      role_meta:   loginData.role_meta ?? {
+        label: loginData.user.role, color: 'gray', dashboard_view: 'auditor',
       },
     })
 
     Message.success(`欢迎回来，${loginData.user.full_name}`)
     password.value = ''
 
-    // 3. 跳转
     const redirect = route.query.redirect as string
-    setTimeout(() => {
-      router.push(redirect || '/dashboard')
-    }, 500)
+    setTimeout(() => router.push(redirect || '/dashboard'), 500)
 
   } catch (error: any) {
     password.value = ''
@@ -343,27 +297,19 @@ function showForgetPassword() {
 }
 
 .circle-1 {
-  width: 480px;
-  height: 480px;
+  width: 480px; height: 480px;
   background: radial-gradient(circle, #165dff, #00b42a);
-  top: -240px;
-  right: -240px;
+  top: -240px; right: -240px;
 }
-
 .circle-2 {
-  width: 360px;
-  height: 360px;
+  width: 360px; height: 360px;
   background: radial-gradient(circle, #ff7d00, #f53f3f);
-  bottom: -180px;
-  left: -180px;
+  bottom: -180px; left: -180px;
 }
-
 .circle-3 {
-  width: 240px;
-  height: 240px;
+  width: 240px; height: 240px;
   background: radial-gradient(circle, #722ed1, #eb2f96);
-  top: 50%;
-  left: 8%;
+  top: 50%; left: 8%;
 }
 
 .login-card {
@@ -376,10 +322,7 @@ function showForgetPassword() {
   z-index: 1;
   transition: box-shadow 0.3s;
 }
-
-.login-card:hover {
-  box-shadow: 0 12px 56px rgba(0, 0, 0, 0.5);
-}
+.login-card:hover { box-shadow: 0 12px 56px rgba(0, 0, 0, 0.5); }
 
 .card-header {
   text-align: center;
@@ -407,9 +350,7 @@ function showForgetPassword() {
 
 .welcome-text { margin: 0; }
 .subtitle { display: block; margin-top: 8px; }
-
 .login-form { padding: 32px 24px; }
-
 .form-item { margin-bottom: 20px; }
 
 .remember-item {
@@ -435,24 +376,30 @@ function showForgetPassword() {
   text-align: center;
 }
 
-/* 输入框错误状态 - 红色外发光 */
+/* 输入框错误发光 */
 .input-error-glow {
   animation: errorGlow 0.6s ease-out !important;
 }
-
 @keyframes errorGlow {
-  0% {
-    box-shadow: 0 0 0 0 rgba(245, 63, 63, 0.7),
-                inset 0 0 0 1px rgba(245, 63, 63, 0.3);
-  }
-  50% {
-    box-shadow: 0 0 0 8px rgba(245, 63, 63, 0.2),
-                inset 0 0 0 1px rgba(245, 63, 63, 0.5);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(245, 63, 63, 0),
-                inset 0 0 0 1px rgba(245, 63, 63, 0);
-  }
+  0%   { box-shadow: 0 0 0 0 rgba(245, 63, 63, 0.7),   inset 0 0 0 1px rgba(245, 63, 63, 0.3); }
+  50%  { box-shadow: 0 0 0 8px rgba(245, 63, 63, 0.2),  inset 0 0 0 1px rgba(245, 63, 63, 0.5); }
+  100% { box-shadow: 0 0 0 0 rgba(245, 63, 63, 0),      inset 0 0 0 1px rgba(245, 63, 63, 0); }
+}
+
+/* alert 进出过渡 */
+.alert-slide-enter-active {
+  transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.34, 1.2, 0.64, 1);
+}
+.alert-slide-leave-active {
+  transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+}
+.alert-slide-enter-from {
+  opacity: 0;
+  transform: translateY(8px) scaleY(0.92);
+}
+.alert-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-4px) scaleY(0.95);
 }
 
 @media (max-width: 480px) {

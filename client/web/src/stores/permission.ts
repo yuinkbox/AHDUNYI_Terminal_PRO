@@ -122,7 +122,12 @@ export const usePermissionStore = defineStore('permission', () => {
         })
       } catch (err) {
         console.warn('[PermissionStore] Background refresh failed:', err)
+        // Even if API fails, mark as hydrated so UI can render with cached/default data
+        hydrated.value = true
       }
+    } else {
+      // No token, mark as hydrated with default state
+      hydrated.value = true
     }
   }
 

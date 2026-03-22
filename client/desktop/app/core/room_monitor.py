@@ -1,19 +1,20 @@
 # -*- coding: utf-8 -*-
 """
-RoomMonitor - UI Automation room-ID probe.
+RoomMonitor - UI Automation room-ID & user-ID probe.
 
 Monitors a target Windows process via UIAutomation and extracts the
-current live-room ID from its window tree.  Runs as a daemon thread so
-the main thread (GUI) is never blocked.
+current live-room ID and user ID from its window tree.  Runs as a
+daemon thread so the main thread (GUI) is never blocked.
 
 Author : AHDUNYI
-Version: 9.0.0
+Version: 9.1.0
 """
 
 import re
 import time
 import threading
-from typing import Callable, Optional
+from collections import defaultdict
+from typing import Callable, Dict, List, Optional, Tuple
 
 import psutil
 
@@ -30,24 +31,39 @@ logger = logging.getLogger(__name__)
 
 
 class RoomMonitor(threading.Thread):
-    """Daemon thread that polls a target process and extracts its room ID.
+    """Daemon thread that polls a target process and extracts room/user IDs.
 
-    Args:
-        callback: Optional callable invoked with the new room-ID string
-            (or ``None`` when the room is exited) on every state change.
-        heartbeat_interval: Seconds between each poll cycle.  Default 2.
-        max_depth: Maximum UI-tree traversal depth.  Default 8.
+    The callback receives ``(room_id, user_id)`` on every state change.
+    Either value can be ``None`` when not detected.
     """
 
-    # Target process name (lower-cased for comparison)
     TARGET_PROCESS_NAME: str = "small_dimple.exe"
 
-    # Matches 3-10 digit IDs, optionally prefixed with a pretty-number marker
+    # Matches 3-10 digit IDs with optional ID: / ID： / 靓 prefix
     ID_PATTERN: re.Pattern = re.compile(r'(?:\u9765\s*|ID[::\uff1a]\s*)?(\d{3,10})')
+
+    # UI 文本关键词：用于在只能扫到一个节点时区分房间号 / 用户资料 ID
+    _ROOM_HINT_TOKENS: Tuple[str, ...] = (
+        "\u623f\u95f4",  # 房间
+        "\u76f4\u64ad\u95f4",  # 直播间
+        "\u76f4\u64ad",  # 直播
+        "Live",
+        "live",
+    )
+    _USER_HINT_TOKENS: Tuple[str, ...] = (
+        "\u4e3b\u64ad",  # 主播
+        "\u7528\u6237",  # 用户
+        "\u8fbe\u4eba",  # 达人
+        "\u6296\u97f3\u53f7",  # 抖音号
+        "UID",
+        "uid",
+    )
+    # 仅出现一个 ID 且深度大于该阈值时，若与上次稳定房间号不同，则视为资料页用户 ID（保留房间号）
+    _DEEP_SINGLE_ID_DEPTH: int = 2
 
     def __init__(
         self,
-        callback: Optional[Callable[[Optional[str]], None]] = None,
+        callback: Optional[Callable[[Optional[str], Optional[str]], None]] = None,
         heartbeat_interval: float = 2.0,
         max_depth: int = 8,
     ) -> None:
@@ -58,10 +74,13 @@ class RoomMonitor(threading.Thread):
 
         self._running: bool = False
         self._current_room_id: Optional[str] = None
+        self._current_user_id: Optional[str] = None
+        self._sticky_room_id: Optional[str] = None
         self._target_pid: Optional[int] = None
         self.stats: dict = {
             "total_scans": 0,
             "room_changes": 0,
+            "user_changes": 0,
             "last_error": None,
         }
 
@@ -76,9 +95,7 @@ class RoomMonitor(threading.Thread):
     # ------------------------------------------------------------------
 
     def run(self) -> None:
-        """Thread entry point.  Blocks until :meth:`stop` is called."""
         if WINDOWS_AVAILABLE:
-            # Initialise COM for this thread
             _initialiser = auto.UIAutomationInitializerInThread()  # noqa: F841
 
         self._running = True
@@ -96,7 +113,6 @@ class RoomMonitor(threading.Thread):
         logger.info("RoomMonitor thread stopped.")
 
     def stop(self) -> None:
-        """Signal the thread to exit on its next cycle."""
         self._running = False
 
     # ------------------------------------------------------------------
@@ -104,7 +120,7 @@ class RoomMonitor(threading.Thread):
     # ------------------------------------------------------------------
 
     def _monitor_cycle(self) -> None:
-        """Single poll iteration: find PID -> scan UI tree -> emit changes."""
+        """Single poll: find PID -> scan UI tree -> collect all IDs -> emit."""
         self.stats["total_scans"] += 1
 
         target_pid: Optional[int] = None
@@ -118,7 +134,8 @@ class RoomMonitor(threading.Thread):
 
         if target_pid is None:
             self._target_pid = None
-            self._handle_room_id_change(None)
+            self._sticky_room_id = None
+            self._handle_info_change(None, None)
             return
 
         self._target_pid = target_pid
@@ -127,16 +144,16 @@ class RoomMonitor(threading.Thread):
             return
 
         root = auto.GetRootControl()
-        current_found_id: Optional[str] = None
+        # (id_value, depth_of_control_where_name_was_read, control_name)
+        collected_ids: List[Tuple[str, int, str]] = []
 
         for window in root.GetChildren():
             try:
                 if window.ProcessId != target_pid:
                     continue
 
-                def _quick_find(control: object, depth: int = 0) -> None:  # noqa: E306
-                    nonlocal current_found_id
-                    if depth > self.max_depth or current_found_id:
+                def _collect(control: object, depth: int = 0) -> None:
+                    if depth > self.max_depth:
                         return
                     try:
                         for element in control.GetChildren():  # type: ignore[attr-defined]
@@ -145,61 +162,119 @@ class RoomMonitor(threading.Thread):
                                 match = self.ID_PATTERN.search(name)
                                 if match:
                                     potential_id = match.group(1)
-                                    # Accept 4+ digit IDs or short IDs preceded
-                                    # by the pretty-number keyword (\u9765)
                                     if "\u9765" in name or len(potential_id) >= 4:
-                                        current_found_id = potential_id
-                                        return
-                            _quick_find(element, depth + 1)
+                                        collected_ids.append((potential_id, depth, name))
+                            _collect(element, depth + 1)
                     except Exception:  # pylint: disable=broad-except
                         pass
 
-                _quick_find(window)
-                if current_found_id:
-                    break
+                _collect(window)
             except Exception:  # pylint: disable=broad-except
                 continue
 
-        self._handle_room_id_change(current_found_id)
+        room_id, user_id = self._classify_collected_ids(collected_ids)
+        self._handle_info_change(room_id, user_id)
 
-    def _handle_room_id_change(self, new_id: Optional[str]) -> None:
-        """Emit a callback when the detected room ID changes."""
-        if new_id == self._current_room_id:
+    def _classify_collected_ids(
+        self, collected_ids: List[Tuple[str, int, str]]
+    ) -> Tuple[Optional[str], Optional[str]]:
+        """Aggregate by id (min depth + name text), then infer room vs user."""
+        if not collected_ids:
+            return None, None
+
+        agg: Dict[str, List] = defaultdict(lambda: [999, []])  # min_depth, name_parts
+
+        for id_val, depth, name in collected_ids:
+            slot = agg[id_val]
+            slot[0] = min(slot[0], depth)
+            if name:
+                slot[1].append(name)
+
+        # Sort unique ids by shallowest occurrence (title / chrome first)
+        ranked: List[Tuple[str, int, str]] = [
+            (iid, int(meta[0]), "".join(meta[1])) for iid, meta in agg.items()
+        ]
+        ranked.sort(key=lambda x: x[1])
+
+        if len(ranked) >= 2:
+            room_id, user_id = ranked[0][0], ranked[1][0]
+            if room_id != user_id:
+                self._sticky_room_id = room_id
+                return room_id, user_id
+
+        id_val, min_depth, blob = ranked[0]
+
+        def _has_any(tokens: Tuple[str, ...], text: str) -> bool:
+            return any(t in text for t in tokens)
+
+        if _has_any(self._ROOM_HINT_TOKENS, blob):
+            self._sticky_room_id = id_val
+            return id_val, None
+
+        if _has_any(self._USER_HINT_TOKENS, blob):
+            sticky = self._sticky_room_id
+            return sticky, id_val
+
+        # 资料页常只剩深层用户 ID，避免覆盖标题栏扫到的房间号
+        if (
+            self._sticky_room_id
+            and id_val != self._sticky_room_id
+            and min_depth > self._DEEP_SINGLE_ID_DEPTH
+        ):
+            return self._sticky_room_id, id_val
+
+        # 浅层 lone id：视为房间标题区域
+        if min_depth <= self._DEEP_SINGLE_ID_DEPTH:
+            self._sticky_room_id = id_val
+            return id_val, None
+
+        self._sticky_room_id = id_val
+        return id_val, None
+
+    def _handle_info_change(
+        self, new_room: Optional[str], new_user: Optional[str]
+    ) -> None:
+        """Emit callback when either room_id or user_id changes."""
+        if new_room == self._current_room_id and new_user == self._current_user_id:
             return
 
-        self._current_room_id = new_id
-
-        if new_id:
+        if new_room != self._current_room_id:
+            self._current_room_id = new_room
             self.stats["room_changes"] += 1
-            label = "[pretty]" if len(new_id) < 6 else ""
-            logger.info("Room captured: %s %s", new_id, label)
-        else:
-            logger.info("Room exited.")
+            if new_room:
+                logger.info("Room captured: %s", new_room)
+            else:
+                logger.info("Room exited.")
+
+        if new_user != self._current_user_id:
+            self._current_user_id = new_user
+            self.stats["user_changes"] += 1
+            if new_user:
+                logger.info("User captured: %s", new_user)
 
         if self.callback:
             try:
-                self.callback(new_id)
+                self.callback(self._current_room_id, self._current_user_id)
             except Exception as exc:  # pylint: disable=broad-except
                 logger.error("Callback error: %s", exc)
 
     # ------------------------------------------------------------------
-    # Public accessors (used by bridge layer)
+    # Public accessors
     # ------------------------------------------------------------------
 
     def get_current_room_id(self) -> Optional[str]:
-        """Return the most recently detected room ID, or None."""
         return self._current_room_id
 
+    def get_current_user_id(self) -> Optional[str]:
+        return self._current_user_id
+
     def get_stats(self) -> dict:
-        """Return a copy of the internal statistics dictionary."""
         return self.stats.copy()
 
     def is_running(self) -> bool:
-        """Return True if the monitor thread is active."""
         return self._running
 
     def is_target_running(self) -> bool:
-        """Return True if the target process is currently detected."""
         return self._target_pid is not None
 
 
@@ -208,28 +283,13 @@ class RoomMonitor(threading.Thread):
 # ---------------------------------------------------------------------------
 
 def create_room_monitor(
-    callback: Optional[Callable[[Optional[str]], None]] = None,
-    target_process: Optional[str] = None,  # kept for API compat
+    callback: Optional[Callable[[Optional[str], Optional[str]], None]] = None,
+    target_process: Optional[str] = None,
     heartbeat_interval: float = 2.0,
     max_depth: int = 8,
-    room_id_pattern: Optional[str] = None,  # kept for API compat
+    room_id_pattern: Optional[str] = None,
 ) -> Optional[RoomMonitor]:
-    """Instantiate a :class:`RoomMonitor`.
-
-    Returns ``None`` on non-Windows platforms where UIAutomation is
-    unavailable.
-
-    Args:
-        callback: State-change callback.
-        target_process: Target process name (informational; the class
-            constant is used for matching).
-        heartbeat_interval: Seconds between polls.
-        max_depth: UI-tree traversal depth limit.
-        room_id_pattern: Regex pattern override (informational).
-
-    Returns:
-        A :class:`RoomMonitor` instance, or ``None``.
-    """
+    """Create a RoomMonitor. Returns None on non-Windows platforms."""
     if not WINDOWS_AVAILABLE:
         logger.warning("Windows UIAutomation unavailable; RoomMonitor disabled.")
         return None

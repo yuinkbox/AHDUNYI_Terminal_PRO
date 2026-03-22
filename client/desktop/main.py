@@ -67,8 +67,8 @@ def _start_room_monitor(settings: AppSettings, bridge) -> Optional[object]:
     try:
         from client.desktop.app.core.room_monitor import create_room_monitor
 
-        def _on_room_change(room_id: Optional[str]) -> None:
-            bridge.update_room_id(room_id)
+        def _on_room_change(room_id: Optional[str], user_id: Optional[str] = None) -> None:
+            bridge.update_room_info(room_id, user_id)
 
         monitor = create_room_monitor(
             callback=_on_room_change,

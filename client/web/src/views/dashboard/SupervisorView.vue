@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="supervisor-view">
     <!-- 顶部：单兵战报精准查询 -->
     <div class="user-search-section">

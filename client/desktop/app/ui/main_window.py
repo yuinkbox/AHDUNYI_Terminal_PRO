@@ -14,7 +14,7 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-from PyQt6.QtCore import QUrl
+from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtGui import QCloseEvent
 from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtWebEngineCore import QWebEngineSettings
@@ -43,6 +43,9 @@ class MainWindow(QMainWindow):
         super().__init__(parent)
         self._settings = settings
         self._bridge = AppBridge(parent=self)
+
+        self._is_mini = False
+        self._normal_geometry = None
 
         self._setup_window()
         self._setup_webengine()
@@ -113,6 +116,43 @@ class MainWindow(QMainWindow):
             "<code>cd client/web &amp;&amp; npm install &amp;&amp; npm run build</code>"
             "</body></html>"
         )
+
+    # ------------------------------------------------------------------
+    # Window control (called from AppBridge slots)
+    # ------------------------------------------------------------------
+
+    def set_always_on_top(self, enabled: bool) -> None:
+        """Toggle the WindowStaysOnTopHint flag."""
+        self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, enabled)
+        self.show()
+        logger.info("Always-on-top: %s", enabled)
+
+    def set_mini_mode(self, enabled: bool) -> None:
+        """Switch between compact mini-float and normal window size."""
+        screen = QApplication.primaryScreen().geometry()
+
+        if enabled and not self._is_mini:
+            self._normal_geometry = self.geometry()
+            mini_w, mini_h = 360, 480
+            x = screen.width() - mini_w - 24
+            y = 24
+            self.setGeometry(x, y, mini_w, mini_h)
+            self._is_mini = True
+            logger.info("Entered mini mode (%dx%d)", mini_w, mini_h)
+
+        elif not enabled and self._is_mini:
+            if self._normal_geometry:
+                self.setGeometry(self._normal_geometry)
+            else:
+                w = self._settings.gui.window_width
+                h = self._settings.gui.window_height
+                self.resize(w, h)
+                self.move(
+                    (screen.width() - w) // 2,
+                    (screen.height() - h) // 2,
+                )
+            self._is_mini = False
+            logger.info("Exited mini mode")
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802
         reply = QMessageBox.question(

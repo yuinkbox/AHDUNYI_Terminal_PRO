@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="shift-leader-view">
     <!-- 审核员视图部分 -->
     <AuditorView />

@@ -1,17 +1,19 @@
 <template>
   <div class="dashboard-page">
-    <!-- 加载状态：等待权限 Store 水合 -->
-    <div v-if="!permissionStore.hydrated" class="loading-state">
-      <a-spin size="large">
-        <div class="loading-content">
-          <icon-loading />
-          <div class="loading-text">正在加载权限信息...</div>
-        </div>
-      </a-spin>
-    </div>
-
     <!-- 权限驱动的视图路由 -->
     <!-- dashboardView 由后端 role_meta.dashboard_view 决定，前端零硬编码 -->
+    <!-- 如果权限 Store 未水合，使用默认视图（AuditorView） -->
+    <template v-if="!permissionStore.hydrated">
+      <!-- 加载状态：等待权限 Store 水合 -->
+      <div class="loading-state">
+        <a-spin size="large">
+          <div class="loading-content">
+            <icon-loading />
+            <div class="loading-text">正在加载权限信息...</div>
+          </div>
+        </a-spin>
+      </div>
+    </template>
     <template v-else>
       <SupervisorView   v-if="permissionStore.dashboardView === 'supervisor'" />
       <ShiftLeaderView  v-else-if="permissionStore.dashboardView === 'leader'" />

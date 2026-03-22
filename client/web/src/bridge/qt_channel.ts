@@ -38,14 +38,21 @@ declare global {
 export interface AppBridge {
   /** Return the currently monitored room ID, or empty string. */
   getRoomId(): Promise<string>
+  /** Return JSON with room_id and user_id. */
+  getRoomInfo(): Promise<string>
   /** Return a JSON string with system status. */
   getSystemStatus(): Promise<string>
   /** Return a JSON string with the logged-in user token payload. */
   getTokenInfo(): Promise<string>
   /** Forward a JS log message to Python logging. */
   logFromJS(message: string): void
+  /** Toggle window always-on-top (desktop only). */
+  setAlwaysOnTop(enabled: boolean): void
+  /** Switch between mini-float and normal window (desktop only). */
+  setMiniMode(enabled: boolean): void
   // Signals
   roomIdChanged:       { connect: (cb: (id: string) => void) => void }
+  roomInfoChanged:     { connect: (cb: (info: string) => void) => void }
   systemStatusChanged: { connect: (cb: (status: string) => void) => void }
   tokenInfoChanged:    { connect: (cb: (info: string) => void) => void }
 }
@@ -142,6 +149,19 @@ export async function onSystemStatusChanged(
   const bridge = await getBridge()
   if (bridge) {
     bridge.systemStatusChanged.connect(callback)
+  }
+}
+
+/**
+ * Subscribe to roomInfoChanged signal (desktop only).
+ * Callback receives JSON string: {"room_id":"...", "user_id":"..."}
+ */
+export async function onRoomInfoChanged(
+  callback: (info: string) => void
+): Promise<void> {
+  const bridge = await getBridge()
+  if (bridge) {
+    bridge.roomInfoChanged.connect(callback)
   }
 }
 

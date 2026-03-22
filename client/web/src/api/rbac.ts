@@ -268,19 +268,19 @@ export const rbacApi = {
 // ---------------------------------------------------------------------------
 export function getTaskChannelLabel(channel: string): string {
   const labels: Record<string, string> = {
-    image: '????',
-    chat:  '????',
-    video: '????',
-    live:  '?????',
+    image: '图片审核',
+    chat:  '单聊审核',
+    video: '视频审核',
+    live:  '直播巡查',
   }
   return labels[channel] ?? channel
 }
 
 export function getShiftTypeLabel(shiftType: string): string {
   const labels: Record<string, string> = {
-    morning:   '??',
-    afternoon: '??',
-    night:     '??',
+    morning:   '早班',
+    afternoon: '中班',
+    night:     '晚班',
   }
   return labels[shiftType] ?? shiftType
 }
